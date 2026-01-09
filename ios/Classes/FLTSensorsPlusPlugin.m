@@ -5,9 +5,21 @@
 #import "FLTSensorsPlusPlugin.h"
 #import <CoreMotion/CoreMotion.h>
 
+@interface FLTSensorsPlusPlugin ()
+@property(nonatomic, strong) FlutterMethodChannel *methodChannel;
+@end
+
 @implementation FLTSensorsPlusPlugin
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
+  FLTSensorsPlusPlugin *instance = [[FLTSensorsPlusPlugin alloc] init];
+  
+  // Setup method channel
+  instance.methodChannel = [FlutterMethodChannel
+      methodChannelWithName:@"dev.fluttercommunity.plus/sensors/method"
+            binaryMessenger:[registrar messenger]];
+  [registrar addMethodCallDelegate:instance channel:instance.methodChannel];
+
   FLTAccelerometerStreamHandlerPlus* accelerometerStreamHandler =
       [[FLTAccelerometerStreamHandlerPlus alloc] init];
   FlutterEventChannel* accelerometerChannel =
@@ -35,6 +47,22 @@
       [FlutterEventChannel eventChannelWithName:@"dev.fluttercommunity.plus/sensors/magnetometer"
                                 binaryMessenger:[registrar messenger]];
   [magnetometerChannel setStreamHandler:magnetometerStreamHandler];
+}
+
+- (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
+  // The sampling period methods are called but since iOS CoreMotion doesn't support
+  // setting sampling periods the same way Android does, we just acknowledge them
+  // without error to maintain API compatibility
+  if ([@"setAccelerationSamplingPeriod" isEqualToString:call.method] ||
+      [@"setGyroscopeSamplingPeriod" isEqualToString:call.method] ||
+      [@"setUserAccelerometerSamplingPeriod" isEqualToString:call.method] ||
+      [@"setMagnetometerSamplingPeriod" isEqualToString:call.method]) {
+    // iOS doesn't support dynamic sampling period adjustment in the same way
+    // Just return success to maintain compatibility
+    result(nil);
+  } else {
+    result(FlutterMethodNotImplemented);
+  }
 }
 
 @end

@@ -11,19 +11,48 @@ internal class StreamHandlerImpl(
         private val sensorManager: SensorManager,
         sensorType: Int
 ) : EventChannel.StreamHandler {
-    private lateinit var sensorEventListener: SensorEventListener
+    private var sensorEventListener: SensorEventListener? = null
+    private var samplingPeriodUs: Int = SensorManager.SENSOR_DELAY_NORMAL
+    private var isListening: Boolean = false
+    private var currentEventSink: EventSink? = null
 
     private val sensor: Sensor by lazy {
         sensorManager.getDefaultSensor(sensorType)
     }
 
     override fun onListen(arguments: Any?, events: EventSink) {
+        currentEventSink = events
         sensorEventListener = createSensorEventListener(events)
-        sensorManager.registerListener(sensorEventListener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+        registerListener()
+        isListening = true
     }
 
     override fun onCancel(arguments: Any?) {
-        sensorManager.unregisterListener(sensorEventListener)
+        unregisterListener()
+        sensorEventListener = null
+        currentEventSink = null
+        isListening = false
+    }
+
+    fun setSamplingPeriod(microseconds: Int) {
+        samplingPeriodUs = microseconds
+        // If already listening, re-register with new sampling period
+        if (isListening && sensorEventListener != null) {
+            unregisterListener()
+            registerListener()
+        }
+    }
+
+    private fun registerListener() {
+        sensorEventListener?.let { listener ->
+            sensorManager.registerListener(listener, sensor, samplingPeriodUs)
+        }
+    }
+
+    private fun unregisterListener() {
+        sensorEventListener?.let { listener ->
+            sensorManager.unregisterListener(listener)
+        }
     }
 
     private fun createSensorEventListener(events: EventSink): SensorEventListener {
